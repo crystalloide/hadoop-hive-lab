@@ -41,6 +41,13 @@ pwd
 Depuis ce répertoire :
 
 ```bash
+chmod +x start.sh stop.sh reset.sh verify.sh
+./reset.sh
+./start.sh
+```
+
+
+
 docker compose build
 docker compose up -d
 ```
