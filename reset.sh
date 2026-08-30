@@ -2,4 +2,3 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 docker compose down -v --remove-orphans
-docker compose build --no-cache
