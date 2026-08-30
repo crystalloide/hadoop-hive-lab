@@ -20,7 +20,18 @@ Prévoir idéalement 6 à 8 Go de RAM pour Docker. Pour un poste avec 4 Go, réd
 
 ## 2. Démarrage
 
-Depuis ce répertoire :
+On récupère le projet en local : 
+
+```bash
+cd ~
+git clone https://github.com/crystalloide/hadoop-hive-lab
+cd hadoop-hive-lab
+```    
+
+#### Affichage du répertoire courant : 
+```bash
+    pwd
+```
 
 ```bash
 docker compose build
