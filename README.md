@@ -48,14 +48,12 @@ chmod +x start.sh stop.sh reset.sh verify.sh
 
 
 
-docker compose build
-docker compose up -d
-```
-
 Suivre le démarrage :
 
 ```bash
 docker compose ps
+docker compose logs tezam
+docker compose logs smoke-test
 docker compose logs -f hiveserver2
 ```
 
