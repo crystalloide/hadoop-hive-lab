@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property><name>hive.execution.engine</name><value>tez</value></property>
+  <property><name>hive.metastore.uris</name><value>thrift://metastore:9083</value></property>
+  <property><name>hive.metastore.warehouse.dir</name><value>hdfs://hadoop:8020/user/hive/warehouse</value></property>
+  <property><name>hive.exec.scratchdir</name><value>hdfs://hadoop:8020/tmp/hive</value></property>
+  <property><name>hive.exec.dynamic.partition</name><value>true</value></property>
+  <property><name>hive.exec.dynamic.partition.mode</name><value>nonstrict</value></property>
+  <property><name>hive.cli.print.header</name><value>true</value></property>
+  <property><name>hive.cli.print.current.db</name><value>true</value></property>
+  <property><name>hive.server2.thrift.bind.host</name><value>0.0.0.0</value></property>
+  <property><name>hive.server2.thrift.port</name><value>10000</value></property>
+  <property><name>hive.server2.webui.port</name><value>10002</value></property>
+  <property><name>hive.server2.enable.doAs</name><value>false</value></property>
+  <property><name>hive.metastore.event.db.notification.api.auth</name><value>false</value></property>
+  <property><name>hive.metastore.schema.verification</name><value>false</value></property>
+  <property><name>hive.txn.manager</name><value>org.apache.hadoop.hive.ql.lockmgr.DummyTxnManager</value></property>
+  <property><name>hive.support.concurrency</name><value>false</value></property>
+  <property><name>tez.lib.uris</name><value>hdfs://hadoop:8020/apps/tez/tez.tar.gz</value></property>
+  <property><name>tez.use.cluster.hadoop-libs</name><value>true</value></property>
+  <property><name>tez.am.resource.memory.mb</name><value>768</value></property>
+  <property><name>tez.am.java.opts</name><value>-Xmx512m</value></property>
+  <property><name>tez.task.resource.memory.mb</name><value>512</value></property>
+  <property><name>tez.task.resource.cpu.vcores</name><value>1</value></property>
+  <property><name>tez.am.container.reuse.enabled</name><value>true</value></property>
+  <property><name>hive.tez.container.size</name><value>512</value></property>
+  <property><name>hive.llap.execution.mode</name><value>all</value></property>
+  <property><name>hive.llap.daemon.service.hosts</name><value>@llap0</value></property>
+  <property><name>hive.zookeeper.quorum</name><value>zookeeper:2181</value></property>
+  <property><name>hive.server2.tez.use.external.sessions</name><value>true</value></property>
+  <property><name>hive.server2.tez.default.queues</name><value>default</value></property>
+  <property><name>hive.llap.daemon.rpc.port</name><value>15001</value></property>
+  <property><name>hive.llap.daemon.yarn.container.mb</name><value>1024</value></property>
+  <property><name>hive.llap.daemon.num.executors</name><value>1</value></property>
+</configuration>
