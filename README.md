@@ -30,7 +30,7 @@ cd hadoop-hive-lab
 
 #### Affichage du répertoire courant : 
 ```bash
-    pwd
+pwd
 ```
 
 ```bash
