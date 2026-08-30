@@ -18,8 +18,6 @@ Docker Desktop récent ou Docker Engine + Docker Compose v2.
 
 Prévoir idéalement 6 à 8 Go de RAM pour Docker. Pour un poste avec 4 Go, réduire les paramètres mémoire YARN/LLAP avant le démarrage.
 
-## 2. Démarrage
-
 On récupère le projet en local : 
 
 ```bash
@@ -28,10 +26,18 @@ git clone https://github.com/crystalloide/hadoop-hive-lab
 cd hadoop-hive-lab
 ```    
 
-#### Affichage du répertoire courant : 
+Affichage du répertoire courant : 
+
 ```bash
 pwd
 ```
+
+
+## 2. Démarrage
+
+
+
+Depuis ce répertoire :
 
 ```bash
 docker compose build
@@ -158,3 +164,20 @@ Cela supprime également les volumes HDFS, PostgreSQL, ZooKeeper et Hive.
 ## 7. Important pour le formateur
 
 Ce cluster est destiné à un TP mono-machine et non à une démonstration d'architecture de production. Il privilégie la reproductibilité et la lisibilité : un seul NameNode et un seul DataNode, mais les rôles YARN nécessaires à MapReduce sont présents. LLAP est volontairement limité à un daemon et un exécuteur afin de rester utilisable sur un PC de formation.
+
+
+## Correctif Tez AM / Docker
+
+Le service `tezam` utilise `STANDALONE_ZOOKEEPER`. Le DAGAppMaster est alors
+lancé directement par le conteneur et non par YARN, mais Tez 0.10.5 attend
+néanmoins les variables d'environnement YARN `CONTAINER_ID`, `NM_HOST`,
+`NM_PORT` et `NM_HTTP_PORT`. Sans elles, le démarrage échoue avec
+`NullPointerException: containerIdStr is null`.
+
+Le compose fournit donc un identifiant de conteneur YARN synthétique et les
+paramètres NodeManager nécessaires au processus Tez AM. Cet identifiant sert
+uniquement à satisfaire le contrat d'exécution du DAGAppMaster dans ce
+handlab.
+
+Le smoke-test exécute une requête Hive avec Tez ; il ne se limite plus à
+vérifier la présence de l'archive Tez dans HDFS.

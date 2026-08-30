@@ -9,7 +9,7 @@ echo '=== Hive / Tez ==='
 beeline -u 'jdbc:hive2://hiveserver2:10000/default' --silent=true --showHeader=true --outputformat=tsv2 <<'SQL'
 SET hive.execution.engine;
 SET tez.lib.uris;
-SELECT 1 AS tez_smoke_test;
+SELECT COUNT(*) AS tez_smoke_test FROM (SELECT 1) t;
 SQL
 
 echo '=== Smoke test OK ==='
