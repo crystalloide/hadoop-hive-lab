@@ -51,7 +51,7 @@ Si les permissions des scripts ont été perdues lors de l'extraction ZIP, `bash
 bash reset.sh
 ```
 
-``bash
+```bash
 bash start.sh
 ```
 
