@@ -1,4 +1,0 @@
-<?xml version="1.0"?>
-<configuration>
-  <property><name>yarn.scheduler.capacity.maximum-am-resource-percent</name><value>100</value></property>
-</configuration>
