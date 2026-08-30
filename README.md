@@ -36,9 +36,10 @@ chmod +x *.sh
 ## Démarrage
 
 Sous Linux / WSL2 :
+
 ```bash
 .\start.sh
-``
+`è`
 
 Le script attend la réussite du smoke-test. Il ne suffit pas que les conteneurs soient `Up` : le test exécute réellement Hive avec Tez, MapReduce et LLAP.
 
