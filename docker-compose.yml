@@ -96,6 +96,30 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  tez-init:
+    image: apache/hive:4.2.1
+    container_name: lab-tez-init
+    hostname: tez-init
+    depends_on:
+      hdfs-init:
+        condition: service_completed_successfully
+    environment:
+      HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >-
+      set -e;
+      test -d /opt/tez;
+      rm -f /tmp/tez.tar.gz;
+      tar -C /opt -czf /tmp/tez.tar.gz tez;
+      hdfs dfs -mkdir -p /apps/tez;
+      hdfs dfs -put -f /tmp/tez.tar.gz /apps/tez/tez.tar.gz;
+      hdfs dfs -chmod 644 /apps/tez/tez.tar.gz;
+      hdfs dfs -ls -h /apps/tez/tez.tar.gz;
+      echo 'Tez deployment to HDFS OK.'
+    volumes:
+      - ./hadoop/conf:/opt/hadoop/etc/hadoop:ro
+    restart: "no"
+
   zookeeper:
     image: zookeeper:3.8.4
     container_name: lab-zookeeper
@@ -112,34 +136,6 @@ services:
       timeout: 3s
       retries: 30
     restart: unless-stopped
-
-  tezam:
-    image: apache/hive:4.2.1
-    container_name: lab-tezam
-    hostname: tezam
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    environment:
-      USER: hive
-      SERVICE_NAME: tezam
-      TEZ_FRAMEWORK_MODE: STANDALONE_ZOOKEEPER
-      TEZ_AM_ZOOKEEPER_QUORUM: zookeeper:2181
-      TEZ_AM_RPC_PORT: "15100"
-      HIVE_ZOOKEEPER_QUORUM: zookeeper:2181
-      HIVE_LLAP_DAEMON_SERVICE_HOSTS: "@llap0"
-      HIVE_SCRATCH_DIR: /opt/hive/scratch
-      HIVE_QUERY_RESULTS_CACHE_DIRECTORY: /opt/hive/scratch/_resultscache_
-    volumes:
-      - hive_warehouse:/opt/hive/data/warehouse
-      - hive_scratch:/opt/hive/scratch
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/15100'"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 20s
-    restart: on-failure:3
 
   llapdaemon:
     image: apache/hive:4.2.1
@@ -179,8 +175,8 @@ services:
     depends_on:
       metastore:
         condition: service_healthy
-      tezam:
-        condition: service_healthy
+      tez-init:
+        condition: service_completed_successfully
       llapdaemon:
         condition: service_healthy
     environment:
@@ -191,8 +187,9 @@ services:
       HADOOP_CLASSPATH: /opt/hadoop/share/hadoop/tools/lib/*
       HIVE_ZOOKEEPER_QUORUM: zookeeper:2181
       HIVE_LLAP_DAEMON_SERVICE_HOSTS: "@llap0"
-      HIVE_SERVER2_TEZ_USE_EXTERNAL_SESSIONS: "true"
-      TEZ_FRAMEWORK_MODE: STANDALONE_ZOOKEEPER
+      HIVE_SERVER2_TEZ_USE_EXTERNAL_SESSIONS: "false"
+      TEZ_FRAMEWORK_MODE: ""
+      HIVE_CUSTOM_CONF_DIR: /opt/custom-conf
       HIVE_SCRATCH_DIR: /opt/hive/scratch
       HIVE_QUERY_RESULTS_CACHE_DIRECTORY: /opt/hive/scratch/_resultscache_
       DEFAULT_FS: hdfs://hadoop:8020
@@ -207,6 +204,7 @@ services:
         -Dhive.execution.mode=container
     volumes:
       - ./hadoop/conf:/opt/hadoop/etc/hadoop:ro
+      - ./hive/custom-conf:/opt/custom-conf:ro
       - hive_warehouse:/opt/hive/data/warehouse
       - hive_scratch:/opt/hive/scratch
     ports:

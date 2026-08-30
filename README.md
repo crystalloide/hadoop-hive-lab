@@ -1,125 +1,35 @@
-# Handlab Hadoop + Hive 4.2.1 + MapReduce + Tez + LLAP
+# Handlab Hadoop + Hive + MapReduce + Tez + LLAP — V4
 
-Environnement pédagogique Docker Compose avec :
+## Pourquoi la V3 échoue
+Avec Hive 4.2.1, l'image embarque Tez 0.10.5. Le `DAGAppMaster` de Tez 0.10.5 lit directement `CONTAINER_ID`, `NM_HOST`, `NM_PORT` et `NM_HTTP_PORT` dans l'environnement YARN lorsqu'il est lancé avec `--session`. `TEZ_FRAMEWORK_MODE=STANDALONE_ZOOKEEPER` ne supprime pas cette lecture dans Tez 0.10.5. C'est exactement la cause du `containerIdStr is null` observé.
 
-- Hadoop 3.4.1 : 1 NameNode + 1 DataNode + YARN ResourceManager + NodeManager
-- MapReduce sur YARN
-- Hive 4.2.1 / HiveServer2 / Metastore PostgreSQL 17
-- Tez 0.10.5 fourni dans l'image officielle Apache Hive
-- Tez AM en mode STANDALONE_ZOOKEEPER
-- 1 daemon LLAP
-- ZooKeeper 3.8.4
+## Architecture V4
+- Hadoop 3.4.1 : 1 NameNode, 1 DataNode, ResourceManager, NodeManager, JobHistoryServer
+- Hive 4.2.1 + PostgreSQL 17
+- Tez 0.10.5 : **ApplicationMaster lancé par YARN**, pas par un conteneur Docker autonome
+- Tez est empaqueté depuis `/opt/tez` de l'image Hive puis déployé automatiquement dans HDFS `/apps/tez/tez.tar.gz`
+- ZooKeeper 3.8.4 + LLAP daemon
+- HiveServer2 utilise YARN pour Tez et ZooKeeper pour la découverte LLAP
 
-
-## Pré-requis :
-
-On récupère le projet en local : 
-
-```bash
-cd ~
-sudo rm -Rf hadoop-hive-lab
-git clone https://github.com/crystalloide/hadoop-hive-lab
-cd hadoop-hive-lab
-```    
-
-Affichage du répertoire courant : 
-
-```bash
-pwd
-```
-
-```bash
-chmod +x *.sh
-```
-
+Ce choix suit le modèle de déploiement Tez documenté : `tez.lib.uris` pointe vers une archive Tez placée dans HDFS, et le client ainsi que les containers utilisent la même version des bibliothèques. 
 
 ## Démarrage
-
-Sous Linux / WSL2 :
-
-```bash
-bash start.sh
-```
-
-Le script attend la réussite du smoke-test. Il ne suffit pas que les conteneurs soient `Up` : le test exécute réellement Hive avec Tez, MapReduce et LLAP.
-
-Si les permissions des scripts ont été perdues lors de l'extraction ZIP, `bash start.sh` fonctionne sans chmod.
-
-## Réinitialisation complète
+Sous Linux/WSL2 :
 
 ```bash
 bash reset.sh
-```
-
-```bash
 bash start.sh
 ```
 
-`reset.sh` supprime également les volumes Docker du lab.
+Le smoke-test exécute réellement :
+1. une requête Hive avec Tez/YARN ;
+2. la même requête avec MapReduce ;
+3. la même requête avec LLAP.
 
+Le démarrage est considéré comme réussi uniquement si ces trois exécutions aboutissent.
 
-## Accès
-
-- NameNode UI : http://localhost:9870
-- YARN UI : http://localhost:8088
+## Interfaces
+- NameNode : http://localhost:9870
+- ResourceManager : http://localhost:8088
 - JobHistory : http://localhost:19888
 - HiveServer2 : localhost:10000
-- HiveServer2 Web UI : http://localhost:10002
-
-Connexion Beeline :
-
-    docker compose exec hiveserver2 beeline -u 'jdbc:hive2://localhost:10000/default'
-
-## Données du TP
-
-Le fichier `clients.csv` est automatiquement chargé dans :
-
-    /data/exemple_clients/clients.csv
-
-La table Hive est créée dans la base `formation` :
-
-    formation.clients
-
-Exemple :
-
-    SELECT ville, COUNT(*) AS nb_clients
-    FROM formation.clients
-    GROUP BY ville;
-
-## Comparaison des moteurs
-
-MapReduce :
-
-    SET hive.execution.engine=mr;
-
-Tez :
-
-    SET hive.execution.engine=tez;
-
-LLAP :
-
-    SET hive.execution.engine=tez;
-    SET hive.llap.execution.mode=only;
-
-Le mode `only` est volontairement utilisé dans le smoke-test : si LLAP n'est pas réellement disponible, le test échoue au lieu de masquer le problème.
-
-## Pourquoi cette V3 est différente de la V2
-
-Le conteneur `tezam` utilise le mécanisme fourni par l'image officielle Apache Hive pour `TEZ_FRAMEWORK_MODE=STANDALONE_ZOOKEEPER`. Il ne définit plus artificiellement `CONTAINER_ID`, `NM_HOST`, `NM_PORT` ou `NM_HTTP_PORT`.
-
-Cette architecture reprend le modèle Docker LLAP actuellement présent dans le dépôt Apache Hive : ZooKeeper, Tez AM standalone et daemon LLAP sont des services séparés et l'image `apache/hive` est utilisée directement.
-
-## Pré-requis conseillés
-
-- Docker Desktop + WSL2 ou Docker Engine Linux
-- 8 Go RAM minimum ; 12 Go recommandés
-- 10 Go d'espace disque disponible
-- connexion Internet au premier lancement pour récupérer les images Docker
-
-## Diagnostic
-
-    docker compose ps
-    docker compose logs tezam
-    docker compose logs llapdaemon
-    docker compose logs hiveserver2
-    docker compose logs smoke-test
