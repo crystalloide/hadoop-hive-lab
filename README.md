@@ -38,7 +38,7 @@ chmod +x *.sh
 Sous Linux / WSL2 :
 
 ```bash
-.\start.sh
+bash start.sh
 ```
 
 Le script attend la réussite du smoke-test. Il ne suffit pas que les conteneurs soient `Up` : le test exécute réellement Hive avec Tez, MapReduce et LLAP.
@@ -48,7 +48,7 @@ Si les permissions des scripts ont été perdues lors de l'extraction ZIP, `bash
 ## Réinitialisation complète
 
 ```bash
-.\reset.sh
+bash reset.sh
 ```
 
 ``bash
