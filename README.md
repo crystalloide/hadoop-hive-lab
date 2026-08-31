@@ -49,7 +49,7 @@ flowchart TB
 Le profil bonus tourne **sans YARN** (mode Tez autonome via Zookeeper,
 repris de l'environnement Docker officiel du projet Apache Hive) : c'est
 volontaire, voir la section [Bonus LLAP](#bonus-llap-optionnel).
-
+  
 ## Prérequis 1
 
 - Docker Desktop (ou Docker Engine + Compose v2) avec **au moins 6 Go de RAM
@@ -73,7 +73,6 @@ cd hadoop-hive-lab
 ```bash
 docker compose up -d --build
 ```
-
 
 Suivez l'initialisation :
 
@@ -205,6 +204,17 @@ MapReduce et Tez, qui sont le cœur du sujet.
 
 ## Dépannage
 
+- **`Unrecognized option: --add-opens=...` / `TezSession has already
+  shutdown`** au lancement de l'AM Tez : bug connu côté Apache Hive/Tez
+  ([HIVE-29015](https://issues.apache.org/jira/browse/HIVE-29015)) quand
+  Hive (JDK17+) soumet un job à un cluster Hadoop resté en JDK 8. Corrigé
+  dans cette version en passant les conteneurs Hadoop en JDK 11 (voir
+  [Notes techniques](#notes-techniques)). Sur un cluster déjà démarré avec
+  une version antérieure, il faut reconstruire les images Hadoop — un
+  simple restart ne suffit pas ici (le JDK est dans l'image) :
+  `docker compose down -v` puis `docker compose up -d --build`. Comme HDFS
+  n'est pas persisté entre deux `down -v`, il faudra recharger
+  `clients.csv` (étape 1) et recréer la table (étape 2) après coup.
 - **`File file:/opt/hive/install_dir/... does not exist` / `TezSession has
   already shutdown`** : provoqué par un correctif intermédiaire de ce
   dossier (`hive.user.install.directory` pointé en local) qui s'est avéré
@@ -249,6 +259,19 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
+- **Les conteneurs Hadoop tournent en JDK 11, pas en JDK 8 (par défaut de
+  l'image `apache/hadoop:3.4.2`).** L'image officielle `apache/hive`
+  (JDK17+) ajoute automatiquement des options JVM `--add-opens=...` en
+  soumettant un job Tez. Un JDK 8 ne reconnaît pas cette syntaxe
+  ("Unrecognized option") et le conteneur de l'AM Tez plante aussitôt —
+  bug connu et non réglable côté configuration Hive/Tez, voir
+  [HIVE-29015](https://issues.apache.org/jira/browse/HIVE-29015), où le
+  rapporteur confirme que faire tourner Hadoop sur un JDK 9+ (il a testé le
+  JDK 17) résout le problème. Le choix s'est porté sur le JDK 11 plutôt que
+  17 : c'est le JDK moderne officiellement supporté en exécution par Hadoop
+  3.4.x (le JDK 17 côté serveur n'est garanti qu'à partir de Hadoop 3.5),
+  et il est disponible nativement sur cette image (CentOS 7 + EPEL) sans
+  changer de base. Voir `hadoop/Dockerfile`.
 - **`/user/hive` doit être accessible en écriture à l'utilisateur `hive`.**
   Au premier lancement d'une session Tez, Hive met en cache un jar de
   session sous `/user/<utilisateur>` sur HDFS — ici `/user/hive`, qui

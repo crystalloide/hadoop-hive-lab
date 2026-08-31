@@ -6,6 +6,33 @@ FROM apache/hadoop:3.4.2
 
 USER root
 
+# -----------------------------------------------------------------------------
+# JDK 11 pour les démons Hadoop (namenode/datanode/resourcemanager/nodemanager)
+# et pour les conteneurs YARN qu'ils lancent (AM Tez, tasks).
+#
+# L'image officielle apache/hive (JDK17+) ajoute automatiquement des options
+# JVM --add-opens=... en soumettant un job Tez. Le JDK 8 par défaut de cette
+# image ne reconnaît pas cette syntaxe ("Unrecognized option: --add-opens"),
+# et le conteneur de l'AM Tez plante immédiatement au lancement. Bug connu,
+# non réglable côté configuration Hive/Tez — voir HIVE-29015 :
+# https://issues.apache.org/jira/browse/HIVE-29015
+# Le rapporteur du ticket confirme lui-même que passer Hadoop en JDK 9+ (il a
+# testé JDK 17) résout le problème ; JDK 11 convient tout autant (Hadoop
+# 3.3+/3.4.x le supporte officiellement en exécution) et est disponible nativement
+# sur cette image (CentOS 7 + EPEL).
+# -----------------------------------------------------------------------------
+RUN yum install -y java-11-openjdk \
+    && yum clean all \
+    && test -d /usr/lib/jvm/java-11-openjdk || { \
+         echo "ERREUR : /usr/lib/jvm/java-11-openjdk introuvable après installation. Contenu de /usr/lib/jvm :"; \
+         ls -la /usr/lib/jvm; \
+         exit 1; \
+       }
+RUN { \
+      echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk"; \
+      echo "export PATH=\${JAVA_HOME}/bin:\${PATH}"; \
+    } >> /opt/hadoop/etc/hadoop/hadoop-env.sh
+
 ENV TEZ_VERSION=0.10.5
 ENV TEZ_HOME=/opt/tez
 
