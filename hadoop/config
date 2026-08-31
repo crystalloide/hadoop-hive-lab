@@ -1,0 +1,52 @@
+HADOOP_HOME=/opt/hadoop/
+
+# ── Core ──────────────────────────────────────────────────────────────────────
+CORE-SITE.XML_fs.default.name=hdfs://namenode:8020
+CORE-SITE.XML_fs.defaultFS=hdfs://namenode:8020
+
+# ── HDFS ──────────────────────────────────────────────────────────────────────
+HDFS-SITE.XML_dfs.namenode.rpc-address=namenode:8020
+HDFS-SITE.XML_dfs.replication=1
+HDFS-SITE.XML_dfs.namenode.datanode.registration.ip-hostname-check=false
+
+# ── MapReduce — mode "yarn-tez" : pratique pour lancer un `hadoop jar ... wordcount`
+#    directement sur ce cluster et voir Tez le prendre en charge automatiquement.
+#    ATTENTION : ceci ne concerne QUE les jobs MapReduce lancés depuis les conteneurs
+#    Hadoop eux-mêmes (namenode/resourcemanager). Hive utilise sa PROPRE configuration
+#    (voir hive-conf/mapred-site.xml) où ce paramètre vaut "yarn" (classique) afin que
+#    "SET hive.execution.engine=mr;" donne un vrai MapReduce à comparer avec Tez. ────
+MAPRED-SITE.XML_mapreduce.framework.name=yarn-tez
+MAPRED-SITE.XML_yarn.app.mapreduce.am.env=HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/
+MAPRED-SITE.XML_mapreduce.map.env=HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/
+MAPRED-SITE.XML_mapreduce.reduce.env=HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/
+
+# ── YARN ──────────────────────────────────────────────────────────────────────
+YARN-SITE.XML_yarn.resourcemanager.hostname=resourcemanager
+YARN-SITE.XML_yarn.nodemanager.pmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.vmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.delete.debug-delay-sec=600
+YARN-SITE.XML_yarn.nodemanager.aux-services=mapreduce_shuffle
+YARN-SITE.XML_yarn.application.classpath=$HADOOP_HOME/etc/hadoop,$HADOOP_HOME/share/hadoop/common/*,$HADOOP_HOME/share/hadoop/common/lib/*,$HADOOP_HOME/share/hadoop/hdfs/*,$HADOOP_HOME/share/hadoop/hdfs/lib/*,$HADOOP_HOME/share/hadoop/mapreduce/*,$HADOOP_HOME/share/hadoop/mapreduce/lib/*,$HADOOP_HOME/share/hadoop/yarn/*,$HADOOP_HOME/share/hadoop/yarn/lib/*,/opt/tez/*,/opt/tez/lib/*
+
+# Dimensionnement du NodeManager unique : assez large pour héberger en même temps
+# l'AM Tez/MapReduce (512 Mo) et au moins une task (512 Mo) sans mettre le job en attente.
+YARN-SITE.XML_yarn.nodemanager.resource.memory-mb=4096
+YARN-SITE.XML_yarn.nodemanager.resource.cpu-vcores=4
+YARN-SITE.XML_yarn.scheduler.maximum-allocation-mb=4096
+YARN-SITE.XML_yarn.scheduler.minimum-allocation-mb=256
+YARN-SITE.XML_yarn.scheduler.maximum-allocation-vcores=4
+
+# ── Capacity Scheduler ────────────────────────────────────────────────────────
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-applications=10000
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-am-resource-percent=0.5
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.resource-calculator=org.apache.hadoop.yarn.util.resource.DominantResourceCalculator
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.queues=default
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.user-limit-factor=1
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.maximum-capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.state=RUNNING
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_submit_applications=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_administer_queue=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.node-locality-delay=40
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings=
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings-override.enable=false

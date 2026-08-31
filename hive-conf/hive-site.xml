@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- Emplacement du warehouse Hive sur HDFS (partagé par metastore + hiveserver2) -->
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>hdfs://namenode:8020/user/hive/warehouse</value>
+  </property>
+
+  <!-- Moteur d'exécution par défaut = Tez, comme demandé par l'atelier.
+       Peut être changé à la volée en session avec :
+         SET hive.execution.engine=mr;
+         SET hive.execution.engine=tez; -->
+  <property>
+    <name>hive.execution.engine</name>
+    <value>tez</value>
+  </property>
+
+  <!-- LLAP désactivé par défaut sur ce HiveServer2 "standard" (pas de daemon LLAP
+       enregistré ici). Sans effet sur le profil bonus llap (voir docker compose,
+       profile "llap") : un "SET hive.llap.execution.mode=all;" en session prend
+       toujours le dessus. -->
+  <property>
+    <name>hive.llap.execution.mode</name>
+    <value>none</value>
+  </property>
+
+  <!-- Pas de gestion d'utilisateurs distincte : simplifie le lab -->
+  <property>
+    <name>hive.server2.enable.doAs</name>
+    <value>false</value>
+  </property>
+
+  <!-- Sortie propre en mode non-interactif / script (beeline -f, docker logs) -->
+  <property>
+    <name>hive.tez.exec.inplace.progress</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hive.tez.exec.print.summary</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>hive.support.concurrency</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.txn.manager</name>
+    <value>org.apache.hadoop.hive.ql.lockmgr.DbTxnManager</value>
+  </property>
+  <property>
+    <name>hive.compactor.worker.threads</name>
+    <value>1</value>
+  </property>
+
+  <property>
+    <name>hive.metastore.event.db.notification.api.auth</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>hive.server2.thrift.port</name>
+    <value>10000</value>
+  </property>
+
+</configuration>

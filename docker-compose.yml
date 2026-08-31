@@ -1,0 +1,249 @@
+name: atelier-hive-tez
+
+services:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Cluster Hadoop (HDFS + YARN) + Tez — construit depuis ./hadoop
+  # Point de départ : https://github.com/crystalloide/hadoop-tez-docker
+  # ══════════════════════════════════════════════════════════════════════════
+
+  namenode:
+    build: ./hadoop
+    hostname: namenode
+    container_name: namenode
+    command: ["hdfs", "namenode"]
+    ports:
+      - "9870:9870"
+    env_file:
+      - ./hadoop/config
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-root/dfs/name"
+    volumes:
+      - ./data:/opt/data:ro
+      - ./scripts:/opt/scripts:ro
+    healthcheck:
+      # Le NameNode est "healthy" uniquement une fois sorti du safe mode
+      test: ["CMD-SHELL", "hdfs dfsadmin -safemode get 2>/dev/null | grep -q 'Safe mode is OFF'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+
+  datanode:
+    build: ./hadoop
+    hostname: datanode
+    container_name: datanode
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./hadoop/config
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  resourcemanager:
+    build: ./hadoop
+    hostname: resourcemanager
+    container_name: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports:
+      - "8088:8088"
+    env_file:
+      - ./hadoop/config
+    depends_on:
+      namenode:
+        condition: service_healthy
+    healthcheck:
+      # "healthy" seulement quand au moins un NodeManager est bien enregistré et RUNNING
+      test: ["CMD-SHELL", "yarn node -list 2>/dev/null | grep -q RUNNING"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+
+  nodemanager:
+    build: ./hadoop
+    hostname: nodemanager
+    container_name: nodemanager
+    command: ["yarn", "nodemanager"]
+    env_file:
+      - ./hadoop/config
+    depends_on:
+      namenode:
+        condition: service_healthy
+      resourcemanager:
+        condition: service_started
+
+  # Service one-shot : dépose le tarball Tez sur HDFS puis s'arrête
+  tez-init:
+    build: ./hadoop
+    hostname: tez-init
+    container_name: tez-init
+    command: ["/bin/bash", "/opt/init-tez.sh"]
+    env_file:
+      - ./hadoop/config
+    volumes:
+      - ./hadoop/init-tez.sh:/opt/init-tez.sh:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    restart: "no"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Hive (image officielle apache/hive) — metastore + hiveserver2
+  # ══════════════════════════════════════════════════════════════════════════
+
+  metastore:
+    image: apache/hive:4.1.0
+    hostname: metastore
+    container_name: metastore
+    environment:
+      SERVICE_NAME: metastore
+      SERVICE_OPTS: -Xmx512m
+      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+    volumes:
+      - ./hive-conf:/hive_custom_conf:ro
+      - metastore-db:/opt/hive/metastore_db
+    depends_on:
+      tez-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9083'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+
+  hiveserver2:
+    image: apache/hive:4.1.0
+    hostname: hiveserver2
+    container_name: hiveserver2
+    environment:
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"
+      SERVICE_OPTS: -Xmx1G -Dhive.metastore.uris=thrift://metastore:9083
+      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    volumes:
+      - ./hive-conf:/hive_custom_conf:ro
+      - ./scripts:/opt/scripts:ro
+    depends_on:
+      metastore:
+        condition: service_healthy
+      resourcemanager:
+        condition: service_healthy
+      tez-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/10000'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # BONUS (optionnel) — Tez + LLAP en mode autonome (sans YARN), inspiré de
+  # l'environnement officiel packaging/src/docker du projet Apache Hive.
+  # Activation : docker compose --profile llap up -d
+  # ══════════════════════════════════════════════════════════════════════════
+
+  zookeeper:
+    profiles: ["llap"]
+    image: zookeeper:3.8.4
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: ruok
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 | grep imok"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  tezam:
+    profiles: ["llap"]
+    image: apache/hive:4.1.0
+    container_name: tezam
+    hostname: tezam
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    restart: on-failure:3
+    environment:
+      USER: hive
+      SERVICE_NAME: tezam
+      TEZ_FRAMEWORK_MODE: STANDALONE_ZOOKEEPER
+      TEZ_AM_ZOOKEEPER_QUORUM: zookeeper:2181
+      TEZ_AM_RPC_PORT: "15100"
+      HIVE_ZOOKEEPER_QUORUM: zookeeper:2181
+      HIVE_LLAP_DAEMON_SERVICE_HOSTS: "@llap0"
+      DEFAULT_FS: hdfs://namenode:8020
+      HIVE_WAREHOUSE_PATH: /user/hive/warehouse
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/15100'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  llapdaemon:
+    profiles: ["llap"]
+    image: apache/hive:4.1.0
+    container_name: llapdaemon
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      USER: hive
+      SERVICE_NAME: llap
+      LLAP_MEMORY_MB: "1024"
+      LLAP_EXECUTORS: "1"
+      HIVE_ZOOKEEPER_QUORUM: zookeeper:2181
+      DEFAULT_FS: hdfs://namenode:8020
+      HIVE_WAREHOUSE_PATH: /user/hive/warehouse
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/15001'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  hiveserver2-llap:
+    profiles: ["llap"]
+    image: apache/hive:4.1.0
+    hostname: hiveserver2-llap
+    container_name: hiveserver2-llap
+    environment:
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"
+      SERVICE_OPTS: >-
+        -Xmx1G
+        -Dhive.metastore.uris=thrift://metastore:9083
+        -Dhive.zookeeper.quorum=zookeeper:2181
+        -Dhive.llap.daemon.service.hosts=@llap0
+      HIVE_ZOOKEEPER_QUORUM: zookeeper:2181
+      HIVE_LLAP_DAEMON_SERVICE_HOSTS: "@llap0"
+      HIVE_SERVER2_TEZ_USE_EXTERNAL_SESSIONS: "true"
+      TEZ_FRAMEWORK_MODE: STANDALONE_ZOOKEEPER
+      DEFAULT_FS: hdfs://namenode:8020
+      HIVE_WAREHOUSE_PATH: /user/hive/warehouse
+    ports:
+      - "10001:10000"
+      - "10012:10002"
+    depends_on:
+      metastore:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/10000'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  metastore-db:

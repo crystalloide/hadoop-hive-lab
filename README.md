@@ -1,184 +1,232 @@
-# Atelier Hadoop : MapReduce, Tez et LLAP avec Docker Compose
+# Atelier HDFS + Hive — MapReduce / Tez / LLAP
 
-Ce dépôt contient un environnement Docker Compose clé en main pour réaliser l'atelier Hadoop (HDFS, Hive, moteurs MapReduce, Tez et LLAP). 
+Environnement Docker Compose prêt à l'emploi pour dérouler l'atelier
+« Manipulations HDFS + Hive et benchmark moteurs Hive » : chargement HDFS,
+table Hive externe, puis comparaison des moteurs d'exécution **MapReduce**,
+**Tez** (par défaut) et, en bonus, **LLAP**.
 
-## 1. Préparation de l'environnement
+Point de départ : [crystalloide/hadoop-tez-docker](https://github.com/crystalloide/hadoop-tez-docker)
+(cluster Hadoop 3.4.2 + Tez 0.10.5), simplifié à 1 nœud par rôle et complété
+par la couche Hive (image officielle `apache/hive:4.1.0`, qui embarque
+Hadoop 3.4.1 et Tez 0.10.5 — versions quasi identiques à celles du cluster,
+donc aucun souci de compatibilité de protocole).
 
-## Pré-requis :
+## Architecture
 
-On récupère le projet en local : 
+```mermaid
+flowchart TB
+    subgraph Hadoop["Cluster Hadoop (build ./hadoop)"]
+        NN[namenode<br/>HDFS]
+        DN[datanode]
+        RM[resourcemanager<br/>YARN]
+        NM[nodemanager]
+        TI["tez-init<br/>(one-shot)"]
+    end
+    subgraph Hive["Hive (image apache/hive:4.1.0)"]
+        MS[metastore<br/>Derby embarqué]
+        HS2[hiveserver2]
+    end
+    subgraph Bonus["Bonus optionnel — profil llap"]
+        ZK[zookeeper]
+        TAM["tezam (AM Tez autonome)"]
+        LLAP[llapdaemon]
+        HS2L[hiveserver2-llap]
+    end
+
+    NN --- DN
+    RM --- NM
+    TI -.dépose tez.tar.gz.-> NN
+    HS2 -->|thrift 9083| MS
+    HS2 -->|soumission jobs| RM
+    HS2 -->|lecture/écriture| NN
+    HS2L -->|thrift 9083| MS
+    HS2L -.session externe.-> ZK
+    TAM -.enregistrement.-> ZK
+    LLAP -.enregistrement.-> ZK
+```
+
+Le profil bonus tourne **sans YARN** (mode Tez autonome via Zookeeper,
+repris de l'environnement Docker officiel du projet Apache Hive) : c'est
+volontaire, voir la section [Bonus LLAP](#bonus-llap-optionnel).
+
+## Prérequis
+
+- Docker Desktop (ou Docker Engine + Compose v2) avec **au moins 6 Go de RAM
+  alloués** (8 Go si vous activez le bonus LLAP).
+- Ports libres sur l'hôte : `9870`, `8088`, `9083`, `10000`, `10002`
+  (`2181`, `10001`, `10012` en plus pour le bonus).
+
+## Démarrage rapide
 
 ```bash
-cd ~
-sudo rm -Rf hadoop-hive-lab
-git clone https://github.com/crystalloide/hadoop-hive-lab
-cd hadoop-hive-lab
-```    
+cd hadoop-hive-tez-llap
+docker compose up -d --build
+```
 
-Affichage du répertoire courant : 
+Suivez l'initialisation :
 
 ```bash
-pwd
+docker compose logs -f tez-init
 ```
 
-Créez un dossier pour votre projet (ex: `hadoop-hive-lab`) et placez-y les fichiers suivants.
+Vous devez voir `Tez-Init : TERMINÉ avec succès !`. Puis attendez que tout
+soit "healthy" :
 
-### Le jeu de données de test (`clients.csv`)
-Créez un fichier `clients.csv` :
-```csv
-id_client,nom,age,ville
-1,Dupont,34,Paris
-2,Martin,28,Lyon
-3,Durand,45,Paris
-4,Lefebvre,52,Marseille
-5,Moreau,23,Lyon
-```
-
-### Le fichier de configuration (`hadoop.env`)
-```env
-CORE_CONF_fs_defaultFS=hdfs://namenode:9000
-CORE_CONF_hadoop_http_staticuser_user=root
-CORE_CONF_hadoop_proxyuser_hue_hosts=*
-CORE_CONF_hadoop_proxyuser_hue_groups=*
-HDFS_CONF_dfs_webhdfs_enabled=true
-HDFS_CONF_dfs_permissions_enabled=false
-YARN_CONF_yarn_nodemanager_resource_memory__mb=2048
-YARN_CONF_yarn_scheduler_maximum__allocation__mb=2048
-```
-
-### Le fichier `docker-compose.yml`
-```yaml
-services:
-  namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
-    container_name: namenode
-    ports:
-      - "9870:9870"
-      - "9000:9000"
-    environment:
-      - CLUSTER_NAME=test
-    env_file:
-      - ./hadoop.env
-    volumes:
-      - ./clients.csv:/tmp/clients.csv
-
-  datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870"
-    env_file:
-      - ./hadoop.env
-
-  resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
-    container_name: resourcemanager
-    environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
-    env_file:
-      - ./hadoop.env
-
-  nodemanager:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    container_name: nodemanager
-    environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
-    env_file:
-      - ./hadoop.env
-
-  hive-server:
-    image: bde2020/hive:2.3.2-postgresql-metastore
-    container_name: hive-server
-    environment:
-      - HADOOP_CORE_SITE_OZONE_ENABLED=true
-      - SERVICE_PRECONDITION=hive-metastore:9083
-      - HIVE_SITE_CONF_hive_execution_engine=tez
-      - HIVE_SITE_CONF_hive_llap_execution_mode=all
-    ports:
-      - "10000:10000"
-      - "10002:10002"
-    volumes:
-      - ./clients.csv:/tmp/clients.csv
-
-  hive-metastore:
-    image: bde2020/hive:2.3.2-postgresql-metastore
-    container_name: hive-metastore
-    environment:
-      - SERVICE_PRECONDITION=namenode:9870 datanode:9864 hive-metastore-postgresql:5432
-    command: /opt/hive/bin/hive --service metastore
-    ports:
-      - "9083:9083"
-
-  hive-metastore-postgresql:
-    image: bde2020/hive-metastore-postgresql:2.3.0
-    container_name: hive-metastore-postgresql
-```
-
-## 2. Démarrage de l'environnement
-
-1. Dans votre terminal, lancez le cluster :
-   ```bash
-   docker compose up -d
-   ```
-2. Patientez (1 à 2 minutes) pour que les services YARN et Hive s'initialisent.
-
-## 3. Déroulement de l'Atelier
-
-### Étape 1 – Chargement sur HDFS
-Entrez dans le conteneur du NameNode :
 ```bash
-docker exec -it namenode bash
+docker compose ps
 ```
-Jouez les commandes HDFS :
+
+`hiveserver2` peut prendre 1 à 2 minutes à démarrer (initialisation du
+schéma Derby). Une fois `healthy`, l'environnement est prêt.
+
+### Vérifier l'installation
+
 ```bash
-hdfs dfs -mkdir -p /user/hadoop/exemple_clients
-hdfs dfs -chmod 775 /user/hadoop/exemple_clients
-hdfs dfs -put /tmp/clients.csv /user/hadoop/exemple_clients/
-hdfs dfs -ls /user/hadoop/exemple_clients
-exit
+docker exec namenode hdfs dfs -ls /apps/tez/
+docker exec namenode hdfs getconf -confKey dfs.replication
+docker exec resourcemanager yarn node -list
 ```
 
-### Étape 2 – Création de la table Hive externe
-Connectez-vous au serveur Hive :
+### Interfaces web
+
+| Service                  | URL                          |
+|---------------------------|------------------------------|
+| NameNode (HDFS)            | http://localhost:9870        |
+| ResourceManager (YARN)      | http://localhost:8088        |
+| HiveServer2 (web UI)         | http://localhost:10002       |
+
+## Déroulé de l'atelier
+
+### Étape 1 — Chargement des données sur HDFS
+
 ```bash
-docker exec -it hive-server bash
-hive
-```
-Dans l'invite Hive, exécutez :
-```sql
-CREATE EXTERNAL TABLE clients ( 
-id_client STRING, 
-nom STRING, 
-age INT, 
-ville STRING 
-) 
-ROW FORMAT DELIMITED 
-FIELDS TERMINATED BY ',' 
-STORED AS TEXTFILE 
-LOCATION '/user/hadoop/exemple_clients' 
-TBLPROPERTIES("skip.header.line.count"="1");
+docker exec namenode bash /opt/scripts/01_prepare_hdfs.sh
 ```
 
-### Étape 3 & 4 – Requête HiveQL et Comparaison des Moteurs
+(`data/clients.csv` est déjà fourni — 20 clients de test — mais vous pouvez
+le remplacer par le vôtre avant de lancer le script.)
 
-**Test avec MapReduce (déprécié, pour comparaison) :**
+### Étape 2 — Création de la table Hive externe
+
+```bash
+docker exec -it hiveserver2 beeline -u 'jdbc:hive2://localhost:10000/default' -f /opt/scripts/02_create_table.hql
+```
+
+### Étape 3 — Requête et temps de traitement
+
+```bash
+docker exec -it hiveserver2 beeline -u 'jdbc:hive2://localhost:10000/default' -f /opt/scripts/03_query_villes.hql
+```
+
+### Étape 4 — Comparaison des moteurs
+
+Manuellement en session Beeline :
+
+```bash
+docker exec -it hiveserver2 beeline -u 'jdbc:hive2://localhost:10000/default'
+```
 ```sql
 SET hive.execution.engine=mr;
 SELECT ville, COUNT(*) AS nb_clients FROM clients GROUP BY ville;
-```
-*Temps attendu : ~30 à 60 secondes.*
 
-**Test avec Tez (moteur par défaut) :**
-```sql
 SET hive.execution.engine=tez;
 SELECT ville, COUNT(*) AS nb_clients FROM clients GROUP BY ville;
 ```
-*Temps attendu : ~5 à 10 secondes (évite l'écriture sur disque des étapes intermédiaires).*
 
-**Test avec LLAP :**
+Ou automatiquement, depuis l'hôte, avec chronométrage :
+
+```bash
+bash scripts/benchmark_engines.sh
+```
+
+Sur un jeu de données aussi petit, l'essentiel de l'écart vient du
+**démarrage** du moteur (allocation de conteneurs YARN, JVM) : MapReduce
+lance un ApplicationMaster puis des tâches map/reduce séquentielles,
+pendant que Tez réutilise un DAG et évite les écritures disque
+intermédiaires. C'est exactement l'écart que l'atelier vous fait observer
+(de l'ordre de 30 à 60 s en MapReduce contre 5 à 10 s en Tez — les valeurs
+réelles dépendent de la machine).
+
+### Étape 5 — Analyse
+
+Éléments de restitution attendus (cf. corrigé de l'atelier) : MapReduce
+lent mais robuste pour du batch planifié ; Tez plus rapide grâce à son DAG
+et à l'absence d'écritures intermédiaires ; LLAP quasi instantané mais plus
+complexe à opérer en production.
+
+## Bonus LLAP (optionnel)
+
+L'énoncé indique LLAP comme optionnel (« si disponible ») — c'est aussi le
+moteur le plus lourd à faire tourner correctement. Ce dépôt fournit un
+profil dédié, repris de l'environnement Docker **officiel du projet Apache
+Hive** (Zookeeper + AM Tez autonome + daemon LLAP), plutôt qu'une
+intégration LLAP-sur-YARN maison — cette dernière demande normalement
+Slider ou le service YARN natif, largement hors du cadre d'un lab. Le prix
+à payer : ce mode tourne **sans YARN**, avec un HiveServer2 dédié sur un
+port séparé.
+
+```bash
+docker compose --profile llap up -d
+```
+
+Puis, dans une session sur le **second** HiveServer2 (port `10001`, table
+`clients` partagée via le même metastore) :
+
+```bash
+docker exec -it hiveserver2-llap beeline -u 'jdbc:hive2://localhost:10000/default'
+```
 ```sql
 SET hive.execution.engine=tez;
 SET hive.llap.execution.mode=all;
 SELECT ville, COUNT(*) AS nb_clients FROM clients GROUP BY ville;
 ```
-*Note : En environnement de production correctement taillé, LLAP offre un temps de réponse quasi immédiat (< 2 secondes).*
+
+`scripts/benchmark_engines.sh` détecte automatiquement `hiveserver2-llap`
+s'il tourne et ajoute la mesure LLAP à la comparaison.
+
+**Honnêtement :** ce bonus n'a pas pu être testé de bout en bout dans les
+mêmes conditions que le socle HDFS/YARN/Hive/Tez (build/exécution Docker
+réels indisponibles depuis l'environnement où j'ai préparé ce dossier). Il
+reprend fidèlement le câblage officiel Apache Hive, mais s'il coince,
+retirez simplement `--profile llap` : l'atelier reste complet avec
+MapReduce et Tez, qui sont le cœur du sujet.
+
+## Dépannage
+
+- **`tez-init` échoue en timeout** : le NameNode n'est pas sorti du safe
+  mode à temps. Relancez `docker compose up -d tez-init`.
+- **Table introuvable / warehouse vide** : vérifiez que
+  `01_prepare_hdfs.sh` a bien été exécuté avant la création de la table.
+- **Redémarrage à froid propre** : `docker compose down -v` puis
+  `docker compose up -d --build` repart d'un état neuf (HDFS, métastore et
+  volumes réinitialisés).
+- **`hiveserver2` reste `unhealthy` longtemps** : normal la toute première
+  fois (initialisation du schéma Derby + attente de YARN) ; regardez
+  `docker compose logs hiveserver2`.
+- **Erreur mémoire / conteneurs tués (OOM)** : augmentez la RAM allouée à
+  Docker Desktop (Settings → Resources).
+
+## Nettoyage
+
+```bash
+docker compose --profile llap down -v
+```
+
+## Notes techniques
+
+- **Hive 4.1.0** a été choisi (plutôt que 4.0.x ou 4.2.x) car c'est la
+  version dont le couple Hadoop/Tez annoncé par le projet Apache Hive
+  (Hadoop 3.4.1 / Tez 0.10.5) colle le mieux à la version du cluster
+  (Hadoop 3.4.2 / Tez 0.10.5) — Tez identique, Hadoop quasi identique.
+- **`hive-conf/mapred-site.xml` met `mapreduce.framework.name=yarn`**
+  (classique), volontairement différent du `yarn-tez` utilisé sur les
+  conteneurs Hadoop bruts (`hadoop/config`, hérité du dépôt de référence
+  pour lancer un `hadoop jar ... wordcount` directement accéléré par Tez).
+  Si Hive héritait de `yarn-tez`, `SET hive.execution.engine=mr;` serait
+  silencieusement réexécuté par Tez, et l'atelier ne pourrait plus montrer
+  d'écart entre les deux moteurs.
+- Le métastore utilise Derby **embarqué**, mais dans son propre conteneur
+  dédié : `hiveserver2` (et `hiveserver2-llap`) s'y connectent uniquement
+  en Thrift, jamais en direct — ce qui évite la limitation Derby
+  « un seul processus à la fois » tout en gardant l'environnement simple
+  (pas de Postgres à faire tourner ni de driver JDBC à télécharger).

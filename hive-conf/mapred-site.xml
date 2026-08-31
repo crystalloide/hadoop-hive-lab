@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!--
+    IMPORTANT : ce paramètre vaut "yarn" ici (et non "yarn-tez" comme sur les
+    conteneurs Hadoop bruts). C'est ce qui garantit que
+    "SET hive.execution.engine=mr;" dans Hive se traduise par un VRAI job
+    MapReduce (celui qu'on veut comparer), et non par un job silencieusement
+    réexécuté par Tez. Le choix "moteur mr / tez / llap" se fait uniquement
+    via hive.execution.engine, jamais via ce paramètre côté Hive.
+  -->
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+  <property>
+    <name>yarn.app.mapreduce.am.env</name>
+    <value>HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/</value>
+  </property>
+  <property>
+    <name>mapreduce.map.env</name>
+    <value>HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.env</name>
+    <value>HADOOP_MAPRED_HOME=/opt/hadoop/share/hadoop/</value>
+  </property>
+  <property>
+    <name>mapreduce.application.classpath</name>
+    <value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+  </property>
+</configuration>

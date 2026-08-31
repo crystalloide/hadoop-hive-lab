@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- URI HDFS du tarball Tez — déposé automatiquement par le service tez-init -->
+  <property>
+    <name>tez.lib.uris</name>
+    <value>hdfs://namenode:8020/apps/tez/tez.tar.gz</value>
+  </property>
+
+  <!-- Réutiliser les libs Hadoop déjà présentes sur le cluster -->
+  <property>
+    <name>tez.use.cluster.hadoop-libs</name>
+    <value>true</value>
+  </property>
+
+  <!-- Mémoire de l'Application Master Tez -->
+  <property>
+    <name>tez.am.resource.memory.mb</name>
+    <value>512</value>
+  </property>
+
+  <!-- Mémoire allouée aux tasks Tez -->
+  <property>
+    <name>tez.task.resource.memory.mb</name>
+    <value>512</value>
+  </property>
+
+  <!-- Options JVM de l'AM Tez (80% de la mémoire allouée) -->
+  <property>
+    <name>tez.am.launch.cmd-opts</name>
+    <value>-Xmx400m</value>
+  </property>
+
+  <!-- Options JVM des tasks Tez -->
+  <property>
+    <name>tez.task.launch.cmd-opts</name>
+    <value>-Xmx400m</value>
+  </property>
+
+  <!-- Répertoire de staging HDFS pour les jobs Tez -->
+  <property>
+    <name>tez.staging-dir</name>
+    <value>/tmp/tez/staging</value>
+  </property>
+
+</configuration>
