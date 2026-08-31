@@ -93,7 +93,8 @@ services:
   # ══════════════════════════════════════════════════════════════════════════
 
   metastore:
-    image: apache/hive:4.1.0
+    build: ./hive
+    image: atelier-hive-tez/hive-fixed:4.1.0
     hostname: metastore
     container_name: metastore
     environment:
@@ -102,7 +103,6 @@ services:
       HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
     volumes:
       - ./hive-conf:/hive_custom_conf:ro
-      - metastore-db:/opt/hive/metastore_db
     depends_on:
       tez-init:
         condition: service_completed_successfully
@@ -114,7 +114,8 @@ services:
       start_period: 40s
 
   hiveserver2:
-    image: apache/hive:4.1.0
+    build: ./hive
+    image: atelier-hive-tez/hive-fixed:4.1.0
     hostname: hiveserver2
     container_name: hiveserver2
     environment:
@@ -165,7 +166,8 @@ services:
 
   tezam:
     profiles: ["llap"]
-    image: apache/hive:4.1.0
+    build: ./hive
+    image: atelier-hive-tez/hive-fixed:4.1.0
     container_name: tezam
     hostname: tezam
     depends_on:
@@ -191,7 +193,8 @@ services:
 
   llapdaemon:
     profiles: ["llap"]
-    image: apache/hive:4.1.0
+    build: ./hive
+    image: atelier-hive-tez/hive-fixed:4.1.0
     container_name: llapdaemon
     depends_on:
       zookeeper:
@@ -213,7 +216,8 @@ services:
 
   hiveserver2-llap:
     profiles: ["llap"]
-    image: apache/hive:4.1.0
+    build: ./hive
+    image: atelier-hive-tez/hive-fixed:4.1.0
     hostname: hiveserver2-llap
     container_name: hiveserver2-llap
     environment:
@@ -244,6 +248,3 @@ services:
       timeout: 10s
       retries: 30
       start_period: 60s
-
-volumes:
-  metastore-db:

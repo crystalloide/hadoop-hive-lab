@@ -7,9 +7,10 @@ table Hive externe, puis comparaison des moteurs d'exécution **MapReduce**,
 
 Point de départ : [crystalloide/hadoop-tez-docker](https://github.com/crystalloide/hadoop-tez-docker)
 (cluster Hadoop 3.4.2 + Tez 0.10.5), simplifié à 1 nœud par rôle et complété
-par la couche Hive (image officielle `apache/hive:4.1.0`, qui embarque
-Hadoop 3.4.1 et Tez 0.10.5 — versions quasi identiques à celles du cluster,
-donc aucun souci de compatibilité de protocole).
+par la couche Hive (basée sur l'image officielle `apache/hive:4.1.0`, qui
+embarque Hadoop 3.4.1 et Tez 0.10.5 — versions quasi identiques à celles du
+cluster, donc aucun souci de compatibilité de protocole — avec un petit
+correctif local, voir [Notes techniques](#notes-techniques)).
 
 ## Architecture
 
@@ -22,7 +23,7 @@ flowchart TB
         NM["nodemanager"]
         TI["tez-init (one-shot)"]
     end
-    subgraph Hive["Hive (image apache/hive:4.1.0)"]
+    subgraph Hive["Hive (build ./hive, base apache/hive:4.1.0)"]
         MS["metastore - Derby embarque"]
         HS2["hiveserver2"]
     end
@@ -65,10 +66,12 @@ cd ~
 sudo rm -Rf hadoop-hive-lab
 git clone https://github.com/crystalloide/hadoop-hive-lab
 cd hadoop-hive-lab
-```    
+```   
+
 ## Démarrage rapide
 
 ```bash
+cd hadoop-hive-tez-llap
 docker compose up -d --build
 ```
 
@@ -202,6 +205,13 @@ MapReduce et Tez, qui sont le cœur du sujet.
 
 ## Dépannage
 
+- **`metastore` quitte avec `find: command not found` puis
+  `Failed to create database 'metastore_db'`** : corrigé dans cette
+  version (voir [Notes techniques](#notes-techniques)). Si vous repartez
+  d'une version antérieure du dossier, relancez avec
+  `docker compose up -d --build` pour reconstruire l'image `hive/` corrigée,
+  et faites `docker compose down -v` avant si un volume `metastore-db`
+  traînait encore d'un essai précédent.
 - **`tez-init` échoue en timeout** : le NameNode n'est pas sorti du safe
   mode à temps. Relancez `docker compose up -d tez-init`.
 - **Table introuvable / warehouse vide** : vérifiez que
@@ -223,6 +233,24 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
+- **`hive/Dockerfile` ajoute `findutils` par-dessus `apache/hive:4.1.0`.**
+  Cette image officielle (base `eclipse-temurin ubi9-minimal`) n'installe
+  pas `find`, alors que son propre `entrypoint.sh` s'en sert pour appliquer
+  `HIVE_CUSTOM_CONF_DIR` — le mécanisme qui pointe Hive vers notre cluster
+  HDFS/YARN/Tez. Sans ce correctif, `find` échoue silencieusement (le
+  script continue sans erreur bloquante) et **toute** la configuration de
+  `hive-conf/` est ignorée : Hive tombe alors sur ses réglages par défaut,
+  déconnectés du cluster. `metastore`, `hiveserver2`, `tezam`, `llapdaemon`
+  et `hiveserver2-llap` utilisent tous cette image corrigée.
+- **Pas de volume nommé pour le Derby du metastore.** Un volume Docker
+  nommé fraîchement créé appartient à `root` par défaut, alors que le
+  processus Hive tourne avec un utilisateur non-root (`hive`, uid 1000) :
+  Derby ne peut alors plus créer sa base au premier démarrage
+  (`Failed to create database`). Comme la persistance entre sessions
+  n'est de toute façon pas nécessaire pour cet atelier (on repart d'un état
+  propre à chaque fois avec `docker compose down -v`), le plus sûr est de
+  ne pas monter de volume ici : la base Derby vit dans la couche writable
+  du conteneur `metastore`, avec les bonnes permissions héritées de l'image.
 - **Hive 4.1.0** a été choisi (plutôt que 4.0.x ou 4.2.x) car c'est la
   version dont le couple Hadoop/Tez annoncé par le projet Apache Hive
   (Hadoop 3.4.1 / Tez 0.10.5) colle le mieux à la version du cluster
