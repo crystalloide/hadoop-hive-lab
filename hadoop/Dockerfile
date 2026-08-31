@@ -69,4 +69,19 @@ RUN echo "export HADOOP_CLASSPATH=\${HADOOP_CLASSPATH}:${TEZ_HOME}/*:${TEZ_HOME}
     >> /opt/hadoop/etc/hadoop/hadoop-env.sh \
     && chown hadoop:hadoop /opt/hadoop/etc/hadoop/tez-site.xml
 
+# -----------------------------------------------------------------------------
+# commons-collections (ancienne bibliothèque, PAS commons-collections4) :
+# du code interne à hive-exec-4.1.0.jar (Operator.initializeChildren) s'appuie
+# encore sur org.apache.commons.collections.CollectionUtils, une classe que
+# Hadoop 3.4.x n'embarque plus (il n'a que commons-collections4). Sans ce
+# jar sur le classpath des conteneurs YARN, toute tâche Tez qui initialise un
+# opérateur Hive plante avec NoClassDefFoundError. Placé dans /opt/tez/lib/
+# car ce répertoire fait déjà partie de yarn.application.classpath
+# (hadoop/config et hive-conf/yarn-site.xml) : le jar devient ainsi
+# disponible pour l'AM et pour chaque tâche, sans configuration par job.
+# -----------------------------------------------------------------------------
+RUN curl -fSL "https://repo1.maven.org/maven2/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.jar" \
+        -o ${TEZ_HOME}/lib/commons-collections-3.2.2.jar \
+    && chown hadoop:hadoop ${TEZ_HOME}/lib/commons-collections-3.2.2.jar
+
 USER hadoop

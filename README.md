@@ -233,6 +233,13 @@ MapReduce et Tez, qui sont le cœur du sujet.
   Java 17 (class file 61) — JDK 11 ne reconnaît que jusqu'à la version 55.
   Corrigé dans cette version : JDK 17, pas 11. Même procédure de
   reconstruction que ci-dessus.
+- **`NoClassDefFoundError: org/apache/commons/collections/CollectionUtils`
+  pendant l'exécution d'une tâche Tez** (le DAG se soumet et démarre, mais
+  chaque tentative de tâche `Map`/`Reducer` échoue) : corrigé dans cette
+  version en ajoutant le jar `commons-collections` (l'ancien, pas
+  `commons-collections4`) à `/opt/tez/lib/` — voir
+  [Notes techniques](#notes-techniques). Même procédure de reconstruction
+  que ci-dessus (`down -v` puis `up -d --build`).
 - **`File file:/opt/hive/install_dir/... does not exist` / `TezSession has
   already shutdown`** : provoqué par un correctif intermédiaire de ce
   dossier (`hive.user.install.directory` pointé en local) qui s'est avéré
@@ -277,6 +284,19 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
+- **`/opt/tez/lib/` embarque aussi `commons-collections-3.2.2.jar`.** Du
+  code interne à `hive-exec-4.1.0.jar` (`Operator.initializeChildren`)
+  utilise encore l'ancienne bibliothèque `commons-collections`
+  (`org.apache.commons.collections.CollectionUtils`, pas
+  `commons-collections4`), que Hadoop 3.4.x n'embarque plus par défaut —
+  chaque tâche Tez qui initialise un opérateur plantait avec
+  `NoClassDefFoundError` sans ce jar. Il est placé dans `/opt/tez/lib/`
+  car ce chemin fait déjà partie de `yarn.application.classpath`
+  (`hadoop/config`, dupliqué dans `hive-conf/yarn-site.xml`), donc
+  disponible pour l'AM et toutes les tâches sans configuration par job. Si
+  une erreur `NoClassDefFoundError` similaire réapparaît pour une autre
+  classe, la même recette s'applique : trouver le jar Maven correspondant
+  et le déposer au même endroit.
 - **Les conteneurs Hadoop tournent en JDK 17, pas en JDK 8 (par défaut de
   l'image `apache/hadoop:3.4.2`).** Deux problèmes distincts avec l'image
   officielle `apache/hive` (4.1.0) : (1) elle ajoute automatiquement des
