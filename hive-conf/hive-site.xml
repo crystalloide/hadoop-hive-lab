@@ -59,6 +59,17 @@
     <value>false</value>
   </property>
 
+  <!-- Répertoire local où Hive/Tez met en cache les jars de session (hive-exec,
+       etc.) pour chaque utilisateur. Sans le préfixe "file://", ce chemin
+       serait résolu contre fs.defaultFS (donc sur HDFS, dans le "home HDFS"
+       /user/hive) : c'est exactement ce qui provoquait un
+       "Permission denied: user=hive, access=WRITE, inode=/user/hive" au
+       premier lancement d'une session Tez. -->
+  <property>
+    <name>hive.user.install.directory</name>
+    <value>file:///opt/hive/install_dir</value>
+  </property>
+
   <property>
     <name>hive.server2.thrift.port</name>
     <value>10000</value>

@@ -45,8 +45,11 @@ hdfs dfs -chmod -R 1777 /tmp/tez
 hdfs dfs -chmod 755 /apps/tez
 
 # Répertoires attendus par Hive (warehouse + scratch) et par l'atelier (exemple_clients)
+# NB : le chmod porte sur /user/hive (pas seulement /user/hive/warehouse) car
+# c'est aussi le "home HDFS" de l'utilisateur "hive" (celui sous lequel tourne
+# HiveServer2) : Tez y crée son propre sous-répertoire de jars de session.
 hdfs dfs -mkdir -p /user/hive/warehouse
-hdfs dfs -chmod -R 1777 /user/hive/warehouse
+hdfs dfs -chmod -R 1777 /user/hive
 hdfs dfs -mkdir -p /tmp/hive
 hdfs dfs -chmod -R 1777 /tmp/hive
 hdfs dfs -mkdir -p /user/hadoop
