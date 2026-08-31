@@ -69,7 +69,6 @@ cd hadoop-hive-lab
 ## Démarrage rapide
 
 ```bash
-cd hadoop-hive-lab
 docker compose up -d --build
 ```
 
