@@ -54,8 +54,10 @@ hdfs dfs -mkdir -p /tmp/hive
 hdfs dfs -chmod -R 1777 /tmp/hive
 hdfs dfs -mkdir -p /user/hadoop
 hdfs dfs -chmod 775 /user/hadoop
+hdfs dfs -mkdir -p /tmp/logs
+hdfs dfs -chmod -R 1777 /tmp/logs
 
-echo "  OK - répertoires créés (/apps/tez, /tmp/tez/staging, /user/hive/warehouse, /user/hadoop)"
+echo "  OK - répertoires créés (/apps/tez, /tmp/tez/staging, /user/hive/warehouse, /user/hadoop, /tmp/logs)"
 
 # -----------------------------------------------------------------------------
 # 3. Upload du tarball Tez sur HDFS (idempotent)

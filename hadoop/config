@@ -36,6 +36,13 @@ YARN-SITE.XML_yarn.scheduler.maximum-allocation-mb=4096
 YARN-SITE.XML_yarn.scheduler.minimum-allocation-mb=256
 YARN-SITE.XML_yarn.scheduler.maximum-allocation-vcores=4
 
+# Agrégation des logs applicatifs sur HDFS : permet ensuite
+# `yarn logs -applicationId <id>` (ou `docker exec resourcemanager yarn logs
+# -applicationId <id>`) au lieu d'aller chercher les logs à la main dans le
+# système de fichiers local du NodeManager.
+YARN-SITE.XML_yarn.log-aggregation-enable=true
+YARN-SITE.XML_yarn.nodemanager.remote-app-log-dir=/tmp/logs
+
 # ── Capacity Scheduler ────────────────────────────────────────────────────────
 CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-applications=10000
 CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-am-resource-percent=0.5

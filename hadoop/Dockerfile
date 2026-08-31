@@ -7,41 +7,41 @@ FROM apache/hadoop:3.4.2
 USER root
 
 # -----------------------------------------------------------------------------
-# JDK 11 pour les démons Hadoop (namenode/datanode/resourcemanager/nodemanager)
+# JDK 17 pour les démons Hadoop (namenode/datanode/resourcemanager/nodemanager)
 # et pour les conteneurs YARN qu'ils lancent (AM Tez, tasks).
 #
-# L'image officielle apache/hive (JDK17+) ajoute automatiquement des options
-# JVM --add-opens=... en soumettant un job Tez. Le JDK 8 par défaut de cette
-# image ne reconnaît pas cette syntaxe ("Unrecognized option: --add-opens"),
-# et le conteneur de l'AM Tez plante immédiatement au lancement. Bug connu,
-# non réglable côté configuration Hive/Tez — voir HIVE-29015 :
-# https://issues.apache.org/jira/browse/HIVE-29015
-# Le rapporteur du ticket confirme lui-même que passer Hadoop en JDK 9+ (il a
-# testé JDK 17) résout le problème ; JDK 11 convient tout autant (Hadoop
-# 3.3+/3.4.x le supporte officiellement en exécution).
+# Deux problèmes distincts, tous deux liés au JDK moderne utilisé par l'image
+# officielle apache/hive (4.1.0) :
+#  1. Hive/Tez injecte automatiquement des options JVM --add-opens=... en
+#     soumettant un job Tez ; un JDK 8 ne reconnaît pas cette syntaxe
+#     ("Unrecognized option: --add-opens").
+#  2. hive-exec-4.1.0.jar est COMPILÉ pour cibler le bytecode Java 17 (class
+#     file version 61) : même un JDK 11 (qui accepte pourtant la syntaxe
+#     --add-opens, JDK9+) ne peut pas charger ces classes
+#     ("UnsupportedClassVersionError ... version 61.0 ... only recognizes
+#     ... up to 55.0" — 55 = Java 11, 61 = Java 17).
+# Bug connu, non réglable côté configuration Hive/Tez — voir HIVE-29015 :
+# https://issues.apache.org/jira/browse/HIVE-29015 — le rapporteur confirme
+# avoir testé Hadoop 3.4.1 sous JDK 17 (pas 11) pour que Tez fonctionne.
 #
-# Installé ici par téléchargement direct (Eclipse Temurin / Adoptium),
-# PAS via yum : cette image est basée sur CentOS 7, dont les dépôts
-# "os"/"updates" pour cette version précise (7.6.1810) ont disparu des
-# miroirs publics depuis la fin de vie de CentOS 7 (juin 2024) — `yum
-# install` y échoue désormais de façon quasi systématique (mirrorlist.
-# centos.org ne répond plus, et les miroirs de secours n'ont plus ce point
-# de version). Le téléchargement direct d'une archive (même principe que
-# pour Tez juste après) contourne complètement ce problème.
+# Installé par téléchargement direct (Eclipse Temurin / Adoptium), PAS via
+# yum : cette image est basée sur CentOS 7, dont les dépôts "os"/"updates"
+# pour cette version précise (7.6.1810) ont disparu des miroirs publics
+# depuis la fin de vie de CentOS 7 (juin 2024).
 # -----------------------------------------------------------------------------
-ENV JAVA11_HOME=/opt/jdk11
-RUN mkdir -p ${JAVA11_HOME} \
-    && curl -fSL "https://api.adoptium.net/v3/binary/latest/11/ga/linux/x64/jdk/hotspot/normal/eclipse" \
-        -o /tmp/jdk11.tar.gz \
-    && tar -xzf /tmp/jdk11.tar.gz -C ${JAVA11_HOME} --strip-components=1 \
-    && rm /tmp/jdk11.tar.gz \
-    && test -x "${JAVA11_HOME}/bin/java" || { \
-         echo "ERREUR : ${JAVA11_HOME}/bin/java introuvable après extraction. Contenu de ${JAVA11_HOME} :"; \
-         find "${JAVA11_HOME}"; \
+ENV JAVA17_HOME=/opt/jdk17
+RUN mkdir -p ${JAVA17_HOME} \
+    && curl -fSL "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse" \
+        -o /tmp/jdk17.tar.gz \
+    && tar -xzf /tmp/jdk17.tar.gz -C ${JAVA17_HOME} --strip-components=1 \
+    && rm /tmp/jdk17.tar.gz \
+    && test -x "${JAVA17_HOME}/bin/java" || { \
+         echo "ERREUR : ${JAVA17_HOME}/bin/java introuvable après extraction. Contenu de ${JAVA17_HOME} :"; \
+         find "${JAVA17_HOME}"; \
          exit 1; \
        }
 RUN { \
-      echo "export JAVA_HOME=${JAVA11_HOME}"; \
+      echo "export JAVA_HOME=${JAVA17_HOME}"; \
       echo "export PATH=\${JAVA_HOME}/bin:\${PATH}"; \
     } >> /opt/hadoop/etc/hadoop/hadoop-env.sh
 

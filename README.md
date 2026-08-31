@@ -210,22 +210,29 @@ MapReduce et Tez, qui sont le cœur du sujet.
   `yum` — or CentOS 7 (base de l'image `apache/hadoop:3.4.2`) est en fin
   de vie depuis juin 2024 et ses dépôts pour ce point de version précis ne
   sont quasiment plus servis par les miroirs publics. Corrigé dans cette
-  version : le JDK 11 est maintenant téléchargé directement (archive
-  Eclipse Temurin), sans passer par `yum`. Si vous êtes sur une version
-  antérieure du dossier, `docker compose down -v` puis
-  `docker compose up -d --build` avec le nouveau `hadoop/Dockerfile`
-  suffit.
+  version : le JDK est maintenant téléchargé directement (archive Eclipse
+  Temurin), sans passer par `yum`. Si vous êtes sur une version antérieure
+  du dossier, `docker compose down -v` puis `docker compose up -d --build`
+  avec le nouveau `hadoop/Dockerfile` suffit.
 - **`Unrecognized option: --add-opens=...` / `TezSession has already
   shutdown`** au lancement de l'AM Tez : bug connu côté Apache Hive/Tez
   ([HIVE-29015](https://issues.apache.org/jira/browse/HIVE-29015)) quand
   Hive (JDK17+) soumet un job à un cluster Hadoop resté en JDK 8. Corrigé
-  dans cette version en passant les conteneurs Hadoop en JDK 11 (voir
+  dans cette version en passant les conteneurs Hadoop en JDK 17 (voir
   [Notes techniques](#notes-techniques)). Sur un cluster déjà démarré avec
   une version antérieure, il faut reconstruire les images Hadoop — un
   simple restart ne suffit pas ici (le JDK est dans l'image) :
   `docker compose down -v` puis `docker compose up -d --build`. Comme HDFS
   n'est pas persisté entre deux `down -v`, il faudra recharger
   `clients.csv` (étape 1) et recréer la table (étape 2) après coup.
+- **`UnsupportedClassVersionError` (`... class file version 61.0 ...
+  only recognizes ... up to 55.0`) juste après que l'erreur ci-dessus a
+  disparu** : un premier correctif de ce dossier avait basculé Hadoop sur
+  JDK 11 (suffisant pour la syntaxe `--add-opens`, cf. ci-dessus), mais
+  `hive-exec-4.1.0.jar` est en réalité compilé pour cibler le bytecode
+  Java 17 (class file 61) — JDK 11 ne reconnaît que jusqu'à la version 55.
+  Corrigé dans cette version : JDK 17, pas 11. Même procédure de
+  reconstruction que ci-dessus.
 - **`File file:/opt/hive/install_dir/... does not exist` / `TezSession has
   already shutdown`** : provoqué par un correctif intermédiaire de ce
   dossier (`hive.user.install.directory` pointé en local) qui s'est avéré
@@ -270,17 +277,19 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
-- **Les conteneurs Hadoop tournent en JDK 11, pas en JDK 8 (par défaut de
-  l'image `apache/hadoop:3.4.2`).** L'image officielle `apache/hive`
-  (JDK17+) ajoute automatiquement des options JVM `--add-opens=...` en
-  soumettant un job Tez. Un JDK 8 ne reconnaît pas cette syntaxe
-  ("Unrecognized option") et le conteneur de l'AM Tez plante aussitôt —
-  bug connu et non réglable côté configuration Hive/Tez, voir
+- **Les conteneurs Hadoop tournent en JDK 17, pas en JDK 8 (par défaut de
+  l'image `apache/hadoop:3.4.2`).** Deux problèmes distincts avec l'image
+  officielle `apache/hive` (4.1.0) : (1) elle ajoute automatiquement des
+  options JVM `--add-opens=...` en soumettant un job Tez, qu'un JDK 8 ne
+  reconnaît pas ("Unrecognized option") ; (2) `hive-exec-4.1.0.jar` est
+  compilé pour cibler le bytecode Java 17 (class file version 61) — un
+  JDK 11, qui accepte pourtant la syntaxe `--add-opens` (JDK9+), ne peut
+  toujours pas charger ces classes (`UnsupportedClassVersionError`). Les
+  deux se règlent en passant Hadoop sur JDK 17. Bug connu et non réglable
+  côté configuration Hive/Tez, voir
   [HIVE-29015](https://issues.apache.org/jira/browse/HIVE-29015), où le
-  rapporteur confirme que faire tourner Hadoop sur un JDK 9+ (il a testé le
-  JDK 17) résout le problème. Le choix s'est porté sur le JDK 11 plutôt que
-  17 : c'est le JDK moderne officiellement supporté en exécution par Hadoop
-  3.4.x (le JDK 17 côté serveur n'est garanti qu'à partir de Hadoop 3.5).
+  rapporteur confirme avoir testé exactement cette combinaison (Hadoop
+  3.4.1 sous JDK 17) avec succès.
   **Installé par téléchargement direct d'une archive Eclipse Temurin
   (Adoptium), pas via `yum`** : cette image est basée sur CentOS 7, dont
   les dépôts `os`/`updates` pour ce point de version précis (7.6.1810) ont
