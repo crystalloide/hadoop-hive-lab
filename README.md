@@ -49,7 +49,7 @@ flowchart TB
 Le profil bonus tourne **sans YARN** (mode Tez autonome via Zookeeper,
 repris de l'environnement Docker officiel du projet Apache Hive) : c'est
 volontaire, voir la section [Bonus LLAP](#bonus-llap-optionnel).
-  
+
 ## Prérequis 1
 
 - Docker Desktop (ou Docker Engine + Compose v2) avec **au moins 6 Go de RAM
@@ -204,6 +204,17 @@ MapReduce et Tez, qui sont le cœur du sujet.
 
 ## Dépannage
 
+- **Le build échoue sur `yum install ... java-11-openjdk` avec des
+  `Could not retrieve mirrorlist` / `HTTP Error 404` en boucle** : c'était
+  une première tentative de correctif de ce dossier, qui reposait sur
+  `yum` — or CentOS 7 (base de l'image `apache/hadoop:3.4.2`) est en fin
+  de vie depuis juin 2024 et ses dépôts pour ce point de version précis ne
+  sont quasiment plus servis par les miroirs publics. Corrigé dans cette
+  version : le JDK 11 est maintenant téléchargé directement (archive
+  Eclipse Temurin), sans passer par `yum`. Si vous êtes sur une version
+  antérieure du dossier, `docker compose down -v` puis
+  `docker compose up -d --build` avec le nouveau `hadoop/Dockerfile`
+  suffit.
 - **`Unrecognized option: --add-opens=...` / `TezSession has already
   shutdown`** au lancement de l'AM Tez : bug connu côté Apache Hive/Tez
   ([HIVE-29015](https://issues.apache.org/jira/browse/HIVE-29015)) quand
@@ -269,9 +280,13 @@ docker compose --profile llap down -v
   rapporteur confirme que faire tourner Hadoop sur un JDK 9+ (il a testé le
   JDK 17) résout le problème. Le choix s'est porté sur le JDK 11 plutôt que
   17 : c'est le JDK moderne officiellement supporté en exécution par Hadoop
-  3.4.x (le JDK 17 côté serveur n'est garanti qu'à partir de Hadoop 3.5),
-  et il est disponible nativement sur cette image (CentOS 7 + EPEL) sans
-  changer de base. Voir `hadoop/Dockerfile`.
+  3.4.x (le JDK 17 côté serveur n'est garanti qu'à partir de Hadoop 3.5).
+  **Installé par téléchargement direct d'une archive Eclipse Temurin
+  (Adoptium), pas via `yum`** : cette image est basée sur CentOS 7, dont
+  les dépôts `os`/`updates` pour ce point de version précis (7.6.1810) ont
+  disparu des miroirs publics depuis la fin de vie de CentOS 7 (juin
+  2024) — `yum install` y échoue désormais quasiment à chaque fois. Voir
+  `hadoop/Dockerfile`.
 - **`/user/hive` doit être accessible en écriture à l'utilisateur `hive`.**
   Au premier lancement d'une session Tez, Hive met en cache un jar de
   session sous `/user/<utilisateur>` sur HDFS — ici `/user/hive`, qui

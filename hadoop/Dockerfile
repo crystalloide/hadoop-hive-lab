@@ -18,18 +18,30 @@ USER root
 # https://issues.apache.org/jira/browse/HIVE-29015
 # Le rapporteur du ticket confirme lui-même que passer Hadoop en JDK 9+ (il a
 # testé JDK 17) résout le problème ; JDK 11 convient tout autant (Hadoop
-# 3.3+/3.4.x le supporte officiellement en exécution) et est disponible nativement
-# sur cette image (CentOS 7 + EPEL).
+# 3.3+/3.4.x le supporte officiellement en exécution).
+#
+# Installé ici par téléchargement direct (Eclipse Temurin / Adoptium),
+# PAS via yum : cette image est basée sur CentOS 7, dont les dépôts
+# "os"/"updates" pour cette version précise (7.6.1810) ont disparu des
+# miroirs publics depuis la fin de vie de CentOS 7 (juin 2024) — `yum
+# install` y échoue désormais de façon quasi systématique (mirrorlist.
+# centos.org ne répond plus, et les miroirs de secours n'ont plus ce point
+# de version). Le téléchargement direct d'une archive (même principe que
+# pour Tez juste après) contourne complètement ce problème.
 # -----------------------------------------------------------------------------
-RUN yum install -y java-11-openjdk \
-    && yum clean all \
-    && test -d /usr/lib/jvm/java-11-openjdk || { \
-         echo "ERREUR : /usr/lib/jvm/java-11-openjdk introuvable après installation. Contenu de /usr/lib/jvm :"; \
-         ls -la /usr/lib/jvm; \
+ENV JAVA11_HOME=/opt/jdk11
+RUN mkdir -p ${JAVA11_HOME} \
+    && curl -fSL "https://api.adoptium.net/v3/binary/latest/11/ga/linux/x64/jdk/hotspot/normal/eclipse" \
+        -o /tmp/jdk11.tar.gz \
+    && tar -xzf /tmp/jdk11.tar.gz -C ${JAVA11_HOME} --strip-components=1 \
+    && rm /tmp/jdk11.tar.gz \
+    && test -x "${JAVA11_HOME}/bin/java" || { \
+         echo "ERREUR : ${JAVA11_HOME}/bin/java introuvable après extraction. Contenu de ${JAVA11_HOME} :"; \
+         find "${JAVA11_HOME}"; \
          exit 1; \
        }
 RUN { \
-      echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk"; \
+      echo "export JAVA_HOME=${JAVA11_HOME}"; \
       echo "export PATH=\${JAVA_HOME}/bin:\${PATH}"; \
     } >> /opt/hadoop/etc/hadoop/hadoop-env.sh
 
