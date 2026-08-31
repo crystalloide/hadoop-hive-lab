@@ -77,7 +77,7 @@ docker compose up -d --build
 Suivez l'initialisation :
 
 ```bash
-docker compose logs -f tez-init
+docker compose logs tez-init
 ```
 
 Vous devez voir `Tez-Init : TERMINÉ avec succès !`. Puis attendez que tout
