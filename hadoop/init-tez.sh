@@ -46,6 +46,9 @@ echo "Création des répertoires HDFS..."
 # Sans ce chmod sur /tmp lui-même (les sous-dossiers ci-dessous ne suffisent
 # pas), Hive plante avec "Permission denied: user=hive, access=WRITE,
 # inode=\"/tmp\"" dès qu'on bascule sur ce moteur.
+# (mkdir -p d'abord : sur un HDFS tout juste formaté, /tmp n'existe pas
+# encore du tout, contrairement au /tmp local d'un système Unix classique.)
+hdfs dfs -mkdir -p /tmp
 hdfs dfs -chmod 1777 /tmp
 
 hdfs dfs -mkdir -p /apps/tez
