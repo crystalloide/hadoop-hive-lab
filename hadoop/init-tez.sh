@@ -39,6 +39,15 @@ echo "  OK - HDFS disponible (safe mode OFF)"
 echo ""
 echo "Création des répertoires HDFS..."
 
+# /tmp lui-même doit être ouvert en écriture (convention HDFS standard,
+# comme le /tmp local d'Unix) : le moteur MapReduce classique (hive.execution.
+# engine=mr) y crée directement son répertoire de staging
+# (/tmp/hadoop-yarn/staging/<utilisateur>/.staging) au premier job soumis.
+# Sans ce chmod sur /tmp lui-même (les sous-dossiers ci-dessous ne suffisent
+# pas), Hive plante avec "Permission denied: user=hive, access=WRITE,
+# inode=\"/tmp\"" dès qu'on bascule sur ce moteur.
+hdfs dfs -chmod 1777 /tmp
+
 hdfs dfs -mkdir -p /apps/tez
 hdfs dfs -mkdir -p /tmp/tez/staging
 hdfs dfs -chmod -R 1777 /tmp/tez

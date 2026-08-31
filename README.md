@@ -233,6 +233,12 @@ MapReduce et Tez, qui sont le cœur du sujet.
   Java 17 (class file 61) — JDK 11 ne reconnaît que jusqu'à la version 55.
   Corrigé dans cette version : JDK 17, pas 11. Même procédure de
   reconstruction que ci-dessus.
+- **`Permission denied: user=hive, access=WRITE, inode="/tmp"`** en
+  basculant sur `SET hive.execution.engine=mr;` : corrigé dans cette
+  version (voir [Notes techniques](#notes-techniques)). Sur un cluster
+  déjà démarré, pas besoin de reconstruire ni de recharger les données —
+  un simple `docker exec namenode hdfs dfs -chmod 1777 /tmp` débloque
+  immédiatement la session en cours.
 - **`NoClassDefFoundError: org/apache/commons/collections/CollectionUtils`
   pendant l'exécution d'une tâche Tez** (le DAG se soumet et démarre, mais
   chaque tentative de tâche `Map`/`Reducer` échoue) : corrigé dans cette
@@ -284,6 +290,16 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
+- **`/tmp` lui-même doit être ouvert en écriture (`1777`), pas seulement
+  ses sous-dossiers.** Le moteur MapReduce classique
+  (`hive.execution.engine=mr`) crée son répertoire de staging directement
+  sous `/tmp` (`/tmp/hadoop-yarn/staging/hive/.staging`) au premier job
+  soumis ; `/tmp` était resté à sa permission HDFS par défaut (`755`,
+  propriétaire `hadoop`), ce qui bloquait l'utilisateur `hive`
+  (`Permission denied: user=hive, access=WRITE, inode="/tmp"`). Corrigé en
+  ouvrant `/tmp` lui-même dans `init-tez.sh` — même famille de bug que
+  `/user/hive` plus haut : chmoder les sous-dossiers qu'on crée ne suffit
+  pas si le dossier parent, lui, reste fermé.
 - **`/opt/tez/lib/` embarque aussi `commons-collections-3.2.2.jar`.** Du
   code interne à `hive-exec-4.1.0.jar` (`Operator.initializeChildren`)
   utilise encore l'ancienne bibliothèque `commons-collections`
