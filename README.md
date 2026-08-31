@@ -48,7 +48,6 @@ YARN_CONF_yarn_scheduler_maximum__allocation__mb=2048
 
 ### Le fichier `docker-compose.yml`
 ```yaml
-version: "3"
 services:
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
