@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")"
 docker compose ps
-echo
-echo 'Smoke-test logs:'
-docker compose logs --no-log-prefix smoke-test 2>/dev/null || true
+echo '--- Tez ---'
+docker compose logs --tail=30 tez-init
+echo '--- LLAP ---'
+docker compose logs --tail=50 llapdaemon

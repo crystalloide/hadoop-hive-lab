@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<configuration>
+ <property><name>tez.lib.uris</name><value>hdfs://namenode:8020/apps/tez/tez.tar.gz</value></property>
+ <property><name>tez.lib.uris.classpath</name><value>./tez/*,./tez/lib/*</value></property>
+ <property><name>tez.use.cluster.hadoop-libs</name><value>false</value></property>
+ <property><name>tez.am.resource.memory.mb</name><value>512</value></property>
+ <property><name>tez.am.resource.cpu.vcores</name><value>1</value></property>
+ <property><name>tez.task.resource.memory.mb</name><value>512</value></property>
+ <property><name>tez.task.resource.cpu.vcores</name><value>1</value></property>
+ <property><name>tez.am.launch.cmd-opts</name><value>-Xmx384m</value></property>
+ <property><name>tez.task.launch.cmd-opts</name><value>-Xmx384m</value></property>
+</configuration>
