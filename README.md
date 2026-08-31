@@ -118,7 +118,7 @@ services:
 
 1. Dans votre terminal, lancez le cluster :
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 2. Patientez (1 à 2 minutes) pour que les services YARN et Hive s'initialisent.
 
