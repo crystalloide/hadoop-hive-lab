@@ -49,17 +49,27 @@ Le profil bonus tourne **sans YARN** (mode Tez autonome via Zookeeper,
 repris de l'environnement Docker officiel du projet Apache Hive) : c'est
 volontaire, voir la section [Bonus LLAP](#bonus-llap-optionnel).
 
-## Prérequis
+## Prérequis 1
 
 - Docker Desktop (ou Docker Engine + Compose v2) avec **au moins 6 Go de RAM
   alloués** (8 Go si vous activez le bonus LLAP).
 - Ports libres sur l'hôte : `9870`, `8088`, `9083`, `10000`, `10002`
   (`2181`, `10001`, `10012` en plus pour le bonus).
+  
+## Pré-requis 2 :
 
+On récupère le projet en local : 
+
+```bash
+cd ~
+sudo rm -Rf hadoop-hive-lab
+git clone https://github.com/crystalloide/hadoop-hive-lab
+cd hadoop-hive-lab
+```    
 ## Démarrage rapide
 
 ```bash
-cd hadoop-hive-tez-llap
+cd hadoop-hive-lab
 docker compose up -d --build
 ```
 
