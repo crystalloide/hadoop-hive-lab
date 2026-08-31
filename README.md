@@ -16,33 +16,33 @@ donc aucun souci de compatibilité de protocole).
 ```mermaid
 flowchart TB
     subgraph Hadoop["Cluster Hadoop (build ./hadoop)"]
-        NN[namenode<br/>HDFS]
-        DN[datanode]
-        RM[resourcemanager<br/>YARN]
-        NM[nodemanager]
-        TI["tez-init<br/>(one-shot)"]
+        NN["namenode - HDFS"]
+        DN["datanode"]
+        RM["resourcemanager - YARN"]
+        NM["nodemanager"]
+        TI["tez-init (one-shot)"]
     end
     subgraph Hive["Hive (image apache/hive:4.1.0)"]
-        MS[metastore<br/>Derby embarqué]
-        HS2[hiveserver2]
+        MS["metastore - Derby embarque"]
+        HS2["hiveserver2"]
     end
-    subgraph Bonus["Bonus optionnel — profil llap"]
-        ZK[zookeeper]
-        TAM["tezam (AM Tez autonome)"]
-        LLAP[llapdaemon]
-        HS2L[hiveserver2-llap]
+    subgraph Bonus["Bonus optionnel - profil llap"]
+        ZK["zookeeper"]
+        TAM["tezam - AM Tez autonome"]
+        LLAP["llapdaemon"]
+        HS2L["hiveserver2-llap"]
     end
 
     NN --- DN
     RM --- NM
-    TI -.dépose tez.tar.gz.-> NN
+    TI -.->|depose tez.tar.gz| NN
     HS2 -->|thrift 9083| MS
     HS2 -->|soumission jobs| RM
-    HS2 -->|lecture/écriture| NN
+    HS2 -->|lecture / ecriture| NN
     HS2L -->|thrift 9083| MS
-    HS2L -.session externe.-> ZK
-    TAM -.enregistrement.-> ZK
-    LLAP -.enregistrement.-> ZK
+    HS2L -.->|session externe| ZK
+    TAM -.->|enregistrement| ZK
+    LLAP -.->|enregistrement| ZK
 ```
 
 Le profil bonus tourne **sans YARN** (mode Tez autonome via Zookeeper,
