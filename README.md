@@ -74,6 +74,7 @@ cd hadoop-hive-lab
 docker compose up -d --build
 ```
 
+
 Suivez l'initialisation :
 
 ```bash
@@ -204,6 +205,16 @@ MapReduce et Tez, qui sont le cœur du sujet.
 
 ## Dépannage
 
+- **`File file:/opt/hive/install_dir/... does not exist` / `TezSession has
+  already shutdown`** : provoqué par un correctif intermédiaire de ce
+  dossier (`hive.user.install.directory` pointé en local) qui s'est avéré
+  incompatible avec le vrai cluster YARN multi-conteneurs de ce lab — voir
+  [Notes techniques](#notes-techniques). Corrigé (propriété retirée) dans
+  cette version. Sur un cluster déjà démarré avec la version fautive,
+  pas besoin de tout reconstruire : remplacez votre
+  `hive-conf/hive-site.xml` par celui de ce dossier, puis
+  `docker compose restart hiveserver2` (la config est montée en
+  bind-mount, `restart` suffit à la faire relire).
 - **`Permission denied: user=hive, access=WRITE, inode="/user/hive"`** au
   lancement d'une requête Tez : corrigé dans cette version (voir
   [Notes techniques](#notes-techniques)). Si un cluster est déjà démarré
@@ -238,20 +249,23 @@ docker compose --profile llap down -v
 
 ## Notes techniques
 
-- **`/user/hive` doit être accessible en écriture à l'utilisateur `hive`,
-  et `hive.user.install.directory` pointe en local.** Au premier lancement
-  d'une session Tez, Hive crée un sous-répertoire pour mettre en cache ses
-  jars de session, par défaut sous `/user/<utilisateur>` sur le système de
-  fichiers configuré — ici HDFS, où `/user/hive` n'appartenait qu'à
-  `hadoop` (celui qui exécute `init-tez.sh`), pas à `hive` (celui qui fait
-  tourner HiveServer2) : `Permission denied: user=hive, access=WRITE`.
-  Corrigé à deux niveaux, l'un rendant l'autre superflu en pratique mais
-  gardés tous les deux par prudence : `init-tez.sh` ouvre `/user/hive` en
-  écriture pour tout le monde (`chmod -R 1777`), et
-  `hive-conf/hive-site.xml` fixe `hive.user.install.directory` sur un
-  chemin local (`file:///opt/hive/install_dir`, déjà accessible en
-  écriture à l'utilisateur `hive` dans l'image) pour éviter complètement
-  de dépendre d'une permission HDFS pour ce simple cache de jars.
+- **`/user/hive` doit être accessible en écriture à l'utilisateur `hive`.**
+  Au premier lancement d'une session Tez, Hive met en cache un jar de
+  session sous `/user/<utilisateur>` sur HDFS — ici `/user/hive`, qui
+  n'appartenait qu'à `hadoop` (celui qui exécute `init-tez.sh`), pas à
+  `hive` (celui qui fait tourner HiveServer2) :
+  `Permission denied: user=hive, access=WRITE`. Corrigé dans
+  `hadoop/init-tez.sh`, qui ouvre `/user/hive` en écriture pour tout le
+  monde (`chmod -R 1777`).
+  Ce répertoire est **volontairement laissé sur HDFS**, pas redirigé vers
+  un chemin local (`hive.user.install.directory`) comme le fait le
+  quickstart officiel Apache Hive — une piste explorée puis abandonnée ici,
+  documentée directement dans `hive-conf/hive-site.xml` : ce raccourci ne
+  fonctionne que pour un Hive en mode local/mono-processus (leur
+  quickstart par défaut), pas pour un vrai cluster YARN multi-conteneurs
+  comme celui-ci, où le NodeManager qui "localise" ce jar pour lancer l'AM
+  Tez est un conteneur différent de `hiveserver2` et ne voit donc aucun
+  chemin local à ce dernier.
 - **`hive/Dockerfile` ajoute `findutils` par-dessus `apache/hive:4.1.0`.**
   Cette image officielle (base `eclipse-temurin ubi9-minimal`) n'installe
   pas `find`, alors que son propre `entrypoint.sh` s'en sert pour appliquer

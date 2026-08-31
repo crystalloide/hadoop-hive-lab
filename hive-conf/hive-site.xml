@@ -59,16 +59,19 @@
     <value>false</value>
   </property>
 
-  <!-- Répertoire local où Hive/Tez met en cache les jars de session (hive-exec,
-       etc.) pour chaque utilisateur. Sans le préfixe "file://", ce chemin
-       serait résolu contre fs.defaultFS (donc sur HDFS, dans le "home HDFS"
-       /user/hive) : c'est exactement ce qui provoquait un
-       "Permission denied: user=hive, access=WRITE, inode=/user/hive" au
-       premier lancement d'une session Tez. -->
-  <property>
-    <name>hive.user.install.directory</name>
-    <value>file:///opt/hive/install_dir</value>
-  </property>
+  <!-- hive.user.install.directory est volontairement LAISSÉ à sa valeur par
+       défaut (résolu sur HDFS, sous /user/hive, via fs.defaultFS). Le
+       quickstart officiel Apache Hive le pointe vers un chemin local
+       (file:///...), ce qui ne fonctionne QUE parce que ce quickstart
+       tourne en mode local/mono-processus (mapreduce.framework.name=local,
+       tez.local.mode=true) : la même machine écrit et relit le fichier.
+       Ici, avec un vrai cluster YARN multi-conteneurs, le NodeManager
+       (chargé de "localiser" ce jar pour lancer l'AM Tez) est un conteneur
+       DIFFÉRENT de hiveserver2 — un chemin local à hiveserver2 lui est
+       tout simplement invisible ("File ... does not exist"). D'où le choix
+       de garder ce répertoire sur HDFS (partagé par tout le cluster) et de
+       corriger le vrai problème — un droit d'écriture manquant — à la
+       source : voir hadoop/init-tez.sh, qui ouvre /user/hive en écriture. -->
 
   <property>
     <name>hive.server2.thrift.port</name>
